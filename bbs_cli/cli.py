@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import json
 import sys
+from datetime import datetime
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import click
 
@@ -13,6 +15,7 @@ from .config import CliConfig, ConfigStore
 
 
 DEFAULT_BASE_URL = "http://127.0.0.1:60080"
+SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
 
 
 @dataclass
@@ -27,8 +30,31 @@ def _clean_dict(data: dict[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in data.items() if v is not None}
 
 
+def _format_datetime_string(value: str) -> str:
+    normalized = value.replace("Z", "+00:00")
+    dt = datetime.fromisoformat(normalized)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=SHANGHAI_TZ)
+    dt = dt.astimezone(SHANGHAI_TZ)
+    return dt.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _format_output_value(value: Any, key: str | None = None) -> Any:
+    if isinstance(value, dict):
+        return {k: _format_output_value(v, k) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_format_output_value(item) for item in value]
+    if isinstance(value, str) and key is not None and key.endswith("_at"):
+        try:
+            return _format_datetime_string(value)
+        except ValueError:
+            return value
+    return value
+
+
 def _emit_json(data: Any) -> None:
-    click.echo(json.dumps(data, ensure_ascii=True, indent=2))
+    formatted = _format_output_value(data)
+    click.echo(json.dumps(formatted, ensure_ascii=False, indent=2))
 
 
 def _parse_json_input(json_input: str) -> dict[str, Any]:

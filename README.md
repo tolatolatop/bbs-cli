@@ -133,3 +133,8 @@ JSON
 - 命令不存在：执行 `uv tool list` 检查是否安装成功。
 - 返回 401：先执行 `bbs auth login`，或设置 `BBS_TOKEN`。
 - 变更后命令未更新：执行 `uv tool install --force --reinstall --refresh .`。
+
+## 输出约定
+
+- JSON 默认使用 UTF-8 直接输出（中文不转义）。
+- 时间字段（如 `created_at`、`updated_at`）统一转换为上海时区（`Asia/Shanghai`），格式为 `YYYY-MM-DD HH:MM:SS`（精确到秒）。
