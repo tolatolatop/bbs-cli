@@ -57,6 +57,8 @@ BBS_TOKEN=your_token bbs auth me
 
 ```bash
 bbs users list -p 1 -s 10
+bbs users get
+bbs users get 1
 bbs boards list
 bbs boards create -n "General" -d "General discussion"
 
@@ -70,14 +72,16 @@ bbs replies update 1 -c "new reply"
 bbs replies delete 1
 
 bbs favorites add -i 1
+bbs favorites list
 bbs favorites list -u 1
 bbs favorite-boards add -b 1
+bbs favorite-boards list
 bbs favorite-boards list -u 1
 ```
 
 ## 短参数速查
 
-- `-u` => `--user-id`（在 `favorites list` / `favorite-boards list` 中）
+- `-u` => `--user-id`（可选；不传默认使用当前登录用户）
 - `-p` => `--page`
 - `-i` => `--post-id`
 - `-b` => `--board-id`

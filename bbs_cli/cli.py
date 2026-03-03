@@ -87,6 +87,21 @@ def _run_request(
         raise click.Abort() from exc
 
 
+def _resolve_user_id(app: AppContext, user_id: int | None) -> int:
+    if user_id is not None:
+        return user_id
+    try:
+        me = app.client.request("GET", "/auth/me")
+    except ApiError as exc:
+        raise click.UsageError(
+            "Cannot determine current user. Please login first or pass --user-id."
+        ) from exc
+    resolved = me.get("id") if isinstance(me, dict) else None
+    if not isinstance(resolved, int):
+        raise click.UsageError("Unable to resolve user id from /auth/me response.")
+    return resolved
+
+
 @click.group()
 @click.option("--base-url", default=None, envvar="BBS_BASE_URL", help="API base URL.")
 @click.option("--token", default=None, envvar="BBS_TOKEN", help="Auth token.")
@@ -218,10 +233,11 @@ def users() -> None:
 
 
 @users.command("get")
-@click.argument("user_id", type=int)
+@click.argument("user_id", type=int, required=False)
 @click.pass_obj
-def users_get(app: AppContext, user_id: int) -> None:
-    _run_request(app, "GET", f"/users/{user_id}")
+def users_get(app: AppContext, user_id: int | None) -> None:
+    resolved_user_id = _resolve_user_id(app, user_id)
+    _run_request(app, "GET", f"/users/{resolved_user_id}")
 
 
 @users.command("list")
@@ -450,16 +466,17 @@ def favorites_remove(app: AppContext, post_id: int) -> None:
 
 
 @favorites.command("list")
-@click.option("-u", "--user-id", required=True, type=int)
+@click.option("-u", "--user-id", required=False, type=int, default=None)
 @click.option("-p", "--page", default=1, show_default=True, type=int)
 @click.option("-s", "--size", default=10, show_default=True, type=int)
 @click.pass_obj
-def favorites_list(app: AppContext, user_id: int, page: int, size: int) -> None:
+def favorites_list(app: AppContext, user_id: int | None, page: int, size: int) -> None:
+    resolved_user_id = _resolve_user_id(app, user_id)
     _run_request(
         app,
         "GET",
         "/favorites",
-        params={"user_id": user_id, "page": page, "size": size},
+        params={"user_id": resolved_user_id, "page": page, "size": size},
     )
 
 
@@ -483,16 +500,17 @@ def favorite_boards_remove(app: AppContext, board_id: int) -> None:
 
 
 @favorite_boards.command("list")
-@click.option("-u", "--user-id", required=True, type=int)
+@click.option("-u", "--user-id", required=False, type=int, default=None)
 @click.option("-p", "--page", default=1, show_default=True, type=int)
 @click.option("-s", "--size", default=10, show_default=True, type=int)
 @click.pass_obj
-def favorite_boards_list(app: AppContext, user_id: int, page: int, size: int) -> None:
+def favorite_boards_list(app: AppContext, user_id: int | None, page: int, size: int) -> None:
+    resolved_user_id = _resolve_user_id(app, user_id)
     _run_request(
         app,
         "GET",
         "/favorite-boards",
-        params={"user_id": user_id, "page": page, "size": size},
+        params={"user_id": resolved_user_id, "page": page, "size": size},
     )
 
 
