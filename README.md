@@ -56,24 +56,34 @@ BBS_TOKEN=your_token bbs auth me
 ## 常用示例
 
 ```bash
-bbs users list --page 1 --size 10
+bbs users list -p 1 -s 10
 bbs boards list
-bbs boards create --name "General" --description "General discussion"
+bbs boards create -n "General" -d "General discussion"
 
-bbs posts list --page 1 --size 10 --board-id 1 --keyword hello
-bbs posts create --board-id 1 --title "First post" --content "Hello world" --tags intro --tags welcome
-bbs posts update 1 --title "Updated title"
+bbs posts list -p 1 -s 10 -b 1 -k hello
+bbs posts create -b 1 -t "First post" -c "Hello world" --tags intro --tags welcome
+bbs posts update 1 -t "Updated title"
 bbs posts replies list 1
-bbs posts replies create 1 --content "reply text"
+bbs posts replies create 1 -c "reply text"
 
-bbs replies update 1 --content "new reply"
+bbs replies update 1 -c "new reply"
 bbs replies delete 1
 
-bbs favorites add --post-id 1
-bbs favorites list --user-id 1
-bbs favorite-boards add --board-id 1
-bbs favorite-boards list --user-id 1
+bbs favorites add -i 1
+bbs favorites list -u 1
+bbs favorite-boards add -b 1
+bbs favorite-boards list -u 1
 ```
+
+## 短参数速查
+
+- `-u` => `--user-id`（在 `favorites list` / `favorite-boards list` 中）
+- `-p` => `--page`
+- `-i` => `--post-id`
+- `-b` => `--board-id`
+- `-t` => `--title`
+- `-c` => `--content`
+- `-s` => `--size`
 
 ## 大文本内容输入（post create）
 
@@ -82,13 +92,13 @@ bbs favorite-boards list --user-id 1
 ### 1) 直接传 `--content`
 
 ```bash
-bbs post create --board-id 1 --title "Normal post" --content "Hello world"
+bbs post create -b 1 -t "Normal post" -c "Hello world"
 ```
 
 ### 2) 从 stdin 读取 content（适合长文本）
 
 ```bash
-bbs post create --board-id 1 --title "Long post from stdin" <<'CONTENT'
+bbs post create -b 1 -t "Long post from stdin" <<'CONTENT'
 This is a long article body.
 Supports multiple lines from stdin.
 CONTENT
@@ -97,19 +107,19 @@ CONTENT
 ### 3) `--json` 传 JSON 字符串
 
 ```bash
-bbs post create --json '{"board_id":1,"title":"json title","content":"json content","tags":["a","b"]}'
+bbs post create -j '{"board_id":1,"title":"json title","content":"json content","tags":["a","b"]}'
 ```
 
 ### 4) `--json @file.json` 从文件读取 JSON
 
 ```bash
-bbs post create --json @post.json
+bbs post create -j @post.json
 ```
 
 ### 5) `--json @-` 从 stdin 读取 JSON
 
 ```bash
-bbs post create --json @- <<'JSON'
+bbs post create -j @- <<'JSON'
 {"board_id":1,"title":"stdin json","content":"content from stdin json"}
 JSON
 ```

@@ -136,10 +136,10 @@ def auth() -> None:
 
 
 @auth.command("register")
-@click.option("--username", required=True)
-@click.option("--password", required=True)
-@click.option("--nickname", required=True)
-@click.option("--bio", default="")
+@click.option("-u", "--username", required=True)
+@click.option("-p", "--password", required=True)
+@click.option("-n", "--nickname", required=True)
+@click.option("-b", "--bio", default="")
 @click.pass_obj
 def auth_register(
     app: AppContext,
@@ -162,8 +162,8 @@ def auth_register(
 
 
 @auth.command("login")
-@click.option("--username", required=True)
-@click.option("--password", required=True)
+@click.option("-u", "--username", required=True)
+@click.option("-p", "--password", required=True)
 @click.option("--save/--no-save", default=True, show_default=True)
 @click.pass_obj
 def auth_login(app: AppContext, username: str, password: str, save: bool) -> None:
@@ -225,8 +225,8 @@ def users_get(app: AppContext, user_id: int) -> None:
 
 
 @users.command("list")
-@click.option("--page", default=1, show_default=True, type=int)
-@click.option("--size", default=10, show_default=True, type=int)
+@click.option("-p", "--page", default=1, show_default=True, type=int)
+@click.option("-s", "--size", default=10, show_default=True, type=int)
 @click.pass_obj
 def users_list(app: AppContext, page: int, size: int) -> None:
     _run_request(app, "GET", "/users", params={"page": page, "size": size})
@@ -251,8 +251,8 @@ def boards_get(app: AppContext, board_id: int) -> None:
 
 
 @boards.command("create")
-@click.option("--name", required=True)
-@click.option("--description", default="")
+@click.option("-n", "--name", required=True)
+@click.option("-d", "--description", default="")
 @click.pass_obj
 def boards_create(app: AppContext, name: str, description: str) -> None:
     _run_request(
@@ -269,10 +269,10 @@ def posts() -> None:
 
 
 @posts.command("list")
-@click.option("--page", default=1, show_default=True, type=int)
-@click.option("--size", default=10, show_default=True, type=int)
-@click.option("--board-id", type=int, default=None)
-@click.option("--keyword", default=None)
+@click.option("-p", "--page", default=1, show_default=True, type=int)
+@click.option("-s", "--size", default=10, show_default=True, type=int)
+@click.option("-b", "--board-id", type=int, default=None)
+@click.option("-k", "--keyword", default=None)
 @click.pass_obj
 def posts_list(
     app: AppContext,
@@ -297,10 +297,11 @@ def posts_get(app: AppContext, post_id: int) -> None:
 
 
 @posts.command("create")
-@click.option("--board-id", type=int, default=None)
-@click.option("--title", default=None)
-@click.option("--content", default=None)
+@click.option("-b", "--board-id", type=int, default=None)
+@click.option("-t", "--title", default=None)
+@click.option("-c", "--content", default=None)
 @click.option(
+    "-j",
     "--json",
     "json_input",
     default=None,
@@ -343,8 +344,8 @@ def posts_create(
 
 @posts.command("update")
 @click.argument("post_id", type=int)
-@click.option("--title", default=None)
-@click.option("--content", default=None)
+@click.option("-t", "--title", default=None)
+@click.option("-c", "--content", default=None)
 @click.option("--tags", multiple=True, help="Repeatable option.")
 @click.pass_obj
 def posts_update(
@@ -379,8 +380,8 @@ def posts_replies() -> None:
 
 @posts_replies.command("list")
 @click.argument("post_id", type=int)
-@click.option("--page", default=1, show_default=True, type=int)
-@click.option("--size", default=10, show_default=True, type=int)
+@click.option("-p", "--page", default=1, show_default=True, type=int)
+@click.option("-s", "--size", default=10, show_default=True, type=int)
 @click.pass_obj
 def posts_replies_list(app: AppContext, post_id: int, page: int, size: int) -> None:
     _run_request(
@@ -393,7 +394,7 @@ def posts_replies_list(app: AppContext, post_id: int, page: int, size: int) -> N
 
 @posts_replies.command("create")
 @click.argument("post_id", type=int)
-@click.option("--content", required=True)
+@click.option("-c", "--content", required=True)
 @click.pass_obj
 def posts_replies_create(app: AppContext, post_id: int, content: str) -> None:
     _run_request(
@@ -411,7 +412,7 @@ def replies() -> None:
 
 @replies.command("update")
 @click.argument("reply_id", type=int)
-@click.option("--content", required=True)
+@click.option("-c", "--content", required=True)
 @click.pass_obj
 def replies_update(app: AppContext, reply_id: int, content: str) -> None:
     _run_request(
@@ -435,23 +436,23 @@ def favorites() -> None:
 
 
 @favorites.command("add")
-@click.option("--post-id", required=True, type=int)
+@click.option("-i", "--post-id", required=True, type=int)
 @click.pass_obj
 def favorites_add(app: AppContext, post_id: int) -> None:
     _run_request(app, "POST", "/favorites", json_body={"post_id": post_id})
 
 
 @favorites.command("remove")
-@click.option("--post-id", required=True, type=int)
+@click.option("-i", "--post-id", required=True, type=int)
 @click.pass_obj
 def favorites_remove(app: AppContext, post_id: int) -> None:
     _run_request(app, "DELETE", "/favorites", params={"post_id": post_id})
 
 
 @favorites.command("list")
-@click.option("--user-id", required=True, type=int)
-@click.option("--page", default=1, show_default=True, type=int)
-@click.option("--size", default=10, show_default=True, type=int)
+@click.option("-u", "--user-id", required=True, type=int)
+@click.option("-p", "--page", default=1, show_default=True, type=int)
+@click.option("-s", "--size", default=10, show_default=True, type=int)
 @click.pass_obj
 def favorites_list(app: AppContext, user_id: int, page: int, size: int) -> None:
     _run_request(
@@ -468,23 +469,23 @@ def favorite_boards() -> None:
 
 
 @favorite_boards.command("add")
-@click.option("--board-id", required=True, type=int)
+@click.option("-b", "--board-id", required=True, type=int)
 @click.pass_obj
 def favorite_boards_add(app: AppContext, board_id: int) -> None:
     _run_request(app, "POST", "/favorite-boards", json_body={"board_id": board_id})
 
 
 @favorite_boards.command("remove")
-@click.option("--board-id", required=True, type=int)
+@click.option("-b", "--board-id", required=True, type=int)
 @click.pass_obj
 def favorite_boards_remove(app: AppContext, board_id: int) -> None:
     _run_request(app, "DELETE", "/favorite-boards", params={"board_id": board_id})
 
 
 @favorite_boards.command("list")
-@click.option("--user-id", required=True, type=int)
-@click.option("--page", default=1, show_default=True, type=int)
-@click.option("--size", default=10, show_default=True, type=int)
+@click.option("-u", "--user-id", required=True, type=int)
+@click.option("-p", "--page", default=1, show_default=True, type=int)
+@click.option("-s", "--size", default=10, show_default=True, type=int)
 @click.pass_obj
 def favorite_boards_list(app: AppContext, user_id: int, page: int, size: int) -> None:
     _run_request(
