@@ -1,0 +1,2 @@
+"""BBS CLI package."""
+
