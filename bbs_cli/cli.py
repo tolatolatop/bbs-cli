@@ -23,6 +23,7 @@ class AppContext:
     client: ApiClient
     store: ConfigStore
     config: CliConfig
+    username: str | None
     config_path: Path
 
 
@@ -133,9 +134,9 @@ def _resolve_user_id(app: AppContext, user_id: int | None) -> int:
 @click.option("--token", default=None, envvar="BBS_TOKEN", help="Auth token.")
 @click.option(
     "--config-path",
-    type=click.Path(path_type=Path, dir_okay=False),
+    type=click.Path(path_type=Path, file_okay=True, dir_okay=True),
     default=None,
-    help="Config file path.",
+    help="Storage root path (or legacy config file path).",
 )
 @click.option("--timeout", default=20.0, type=float, show_default=True)
 @click.pass_context
@@ -148,14 +149,34 @@ def cli(
 ) -> None:
     """BBS command line client."""
     store = ConfigStore(config_path)
-    cfg = store.load()
+    state = store.load_state()
+    current_username = state.last_username
+    cfg = CliConfig()
+    if current_username is not None:
+        user_cfg_path = store.user_config_path(current_username)
+        if not user_cfg_path.exists():
+            migrated = store.migrate_legacy_to_user(current_username)
+            if migrated is not None:
+                cfg = migrated
+            else:
+                cfg = store.load_user(current_username)
+        else:
+            cfg = store.load_user(current_username)
+    elif store.has_legacy_config():
+        # Read-only fallback for pre-migration installs.
+        cfg = store.load_legacy()
+
     resolved_base_url = base_url or cfg.base_url or DEFAULT_BASE_URL
     resolved_token = token or cfg.token
+    resolved_config_path = (
+        store.user_config_path(current_username) if current_username is not None else store.path
+    )
     app = AppContext(
         client=ApiClient(base_url=resolved_base_url, token=resolved_token, timeout=timeout),
         store=store,
         config=cfg,
-        config_path=store.path,
+        username=current_username,
+        config_path=resolved_config_path,
     )
     ctx.obj = app
 
@@ -227,8 +248,13 @@ def auth_login(app: AppContext, username: str, password: str, save: bool) -> Non
 
     token = result.get("token")
     if save and token:
-        app.config.token = token
-        app.store.save(app.config)
+        cfg = app.store.load_user(username)
+        cfg.token = token
+        app.store.save_user(username, cfg)
+        app.store.set_last_username(username)
+        app.config = cfg
+        app.username = username
+        app.config_path = app.store.user_config_path(username)
         result = {**result, "saved_to": str(app.config_path)}
     _emit_json(result)
 
@@ -242,11 +268,16 @@ def auth_me(app: AppContext) -> None:
 @auth.command("logout")
 @click.pass_obj
 def auth_logout(app: AppContext) -> None:
-    cfg = app.store.clear_token()
+    if app.username is None:
+        raise click.UsageError("Cannot determine current username. Please login first.")
+    cfg = app.store.clear_user_token(app.username)
+    app.config = cfg
+    app.config_path = app.store.user_config_path(app.username)
     _emit_json(
         {
             "ok": True,
             "message": "token cleared",
+            "username": app.username,
             "config_path": str(app.config_path),
             "base_url": cfg.base_url,
         }

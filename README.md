@@ -17,8 +17,11 @@ bbs health check
 
 ## 认证与配置
 
-- 默认配置文件：`~/.config/bbs-cli/config.json`
-- `bbs auth login` 成功后会自动保存 token（可用 `--no-save` 关闭）
+- 默认存储根目录：`~/.config/bbs-cli/`
+- 全局状态文件：`~/.config/bbs-cli/state.json`（保存 `last_username`）
+- 用户配置文件：`~/.config/bbs-cli/users/<username>/config.json`
+- `bbs auth login` 成功后会自动保存 token 到对应用户名目录（可用 `--no-save` 关闭）
+- 默认使用 `last_username` 对应用户配置；`bbs auth logout` 仅清理该用户 token
 
 ```bash
 bbs auth register --username alice --password 123456 --nickname Alice
@@ -33,7 +36,7 @@ bbs auth logout
 
 1. CLI 参数：`--base-url`、`--token`
 2. 环境变量：`BBS_BASE_URL`、`BBS_TOKEN`
-3. 配置文件：`~/.config/bbs-cli/config.json`
+3. 用户配置文件：`~/.config/bbs-cli/users/<last_username>/config.json`
 4. 默认值：`http://127.0.0.1:60080`
 
 ```bash
