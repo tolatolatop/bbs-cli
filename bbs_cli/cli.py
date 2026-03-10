@@ -377,6 +377,28 @@ def posts_get(app: AppContext, post_id: int) -> None:
     _record_post_visit(app, post_id)
 
 
+@posts.command("history")
+@click.argument("post_id", type=int, required=False)
+@click.pass_obj
+def posts_history(app: AppContext, post_id: int | None) -> None:
+    if app.username is None:
+        raise click.UsageError("Cannot determine current username. Please login first.")
+
+    history = app.store.load_user_history(app.username).post_last_visited
+    if post_id is None:
+        _emit_json({"username": app.username, "post_last_visited": history})
+        return
+
+    key = str(post_id)
+    _emit_json(
+        {
+            "username": app.username,
+            "post_id": post_id,
+            "last_visited_at": history.get(key),
+        }
+    )
+
+
 @posts.command("create")
 @click.option("-b", "--board-id", type=int, default=None)
 @click.option("-t", "--title", default=None)

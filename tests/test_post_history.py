@@ -123,3 +123,66 @@ def test_post_history_skip_when_username_missing(tmp_path: Path, monkeypatch) ->
 
     assert result.exit_code == 0, result.output
     assert not (tmp_path / "users").exists()
+
+
+def test_posts_history_returns_all_post_visits(tmp_path: Path) -> None:
+    _write_state(tmp_path, "alice")
+    history_path = tmp_path / "users" / "alice" / "history.json"
+    history_path.parent.mkdir(parents=True, exist_ok=True)
+    history_path.write_text(
+        json.dumps(
+            {
+                "post_last_visited": {
+                    "7": "2026-03-09T10:00:00+00:00",
+                    "8": "2026-03-09T11:00:00+00:00",
+                }
+            },
+            ensure_ascii=True,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["--config-path", str(tmp_path), "posts", "history"])
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["username"] == "alice"
+    assert payload["post_last_visited"]["7"] == "2026-03-09T10:00:00+00:00"
+    assert payload["post_last_visited"]["8"] == "2026-03-09T11:00:00+00:00"
+
+
+def test_posts_history_returns_single_post_visit(tmp_path: Path) -> None:
+    _write_state(tmp_path, "alice")
+    history_path = tmp_path / "users" / "alice" / "history.json"
+    history_path.parent.mkdir(parents=True, exist_ok=True)
+    history_path.write_text(
+        json.dumps(
+            {"post_last_visited": {"9": "2026-03-09T12:00:00+00:00"}},
+            ensure_ascii=True,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli, ["--config-path", str(tmp_path), "posts", "history", "9"]
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["username"] == "alice"
+    assert payload["post_id"] == 9
+    assert payload["last_visited_at"] == "2026-03-09 20:00:00"
+
+
+def test_posts_history_without_username_errors(tmp_path: Path) -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli, ["--config-path", str(tmp_path), "posts", "history"])
+
+    assert result.exit_code != 0
+    assert "Cannot determine current username. Please login first." in result.output
