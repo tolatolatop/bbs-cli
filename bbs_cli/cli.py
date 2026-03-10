@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -84,6 +84,13 @@ def _read_stdin_content() -> str | None:
     if sys.stdin.isatty():
         return None
     return sys.stdin.read()
+
+
+def _record_post_visit(app: AppContext, post_id: int) -> None:
+    if app.username is None:
+        return
+    visited_at = datetime.now(tz=timezone.utc).isoformat()
+    app.store.set_post_last_visited(app.username, post_id, visited_at)
 
 
 def _run_request(
@@ -367,6 +374,7 @@ def posts_list(
 @click.pass_obj
 def posts_get(app: AppContext, post_id: int) -> None:
     _run_request(app, "GET", f"/posts/{post_id}")
+    _record_post_visit(app, post_id)
 
 
 @posts.command("create")
@@ -463,6 +471,7 @@ def posts_replies_list(app: AppContext, post_id: int, page: int, size: int) -> N
         f"/posts/{post_id}/replies",
         params={"page": page, "size": size},
     )
+    _record_post_visit(app, post_id)
 
 
 @posts_replies.command("create")

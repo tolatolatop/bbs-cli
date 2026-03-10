@@ -10,6 +10,7 @@ LEGACY_CONFIG_FILENAME = "config.json"
 STATE_FILENAME = "state.json"
 USERS_DIRNAME = "users"
 USER_CONFIG_FILENAME = "config.json"
+USER_HISTORY_FILENAME = "history.json"
 
 
 @dataclass
@@ -21,6 +22,11 @@ class CliConfig:
 @dataclass
 class CliState:
     last_username: str | None = None
+
+
+@dataclass
+class UserHistory:
+    post_last_visited: dict[str, str]
 
 
 class ConfigStore:
@@ -48,6 +54,9 @@ class ConfigStore:
 
     def user_config_path(self, username: str) -> Path:
         return self.user_dir(username) / USER_CONFIG_FILENAME
+
+    def user_history_path(self, username: str) -> Path:
+        return self.user_dir(username) / USER_HISTORY_FILENAME
 
     def _load_config_from_path(self, path: Path) -> CliConfig:
         if not path.exists():
@@ -112,4 +121,33 @@ class ConfigStore:
         legacy = self.load_legacy()
         self.save_user(username, legacy)
         return legacy
+
+    def load_user_history(self, username: str) -> UserHistory:
+        path = self.user_history_path(username)
+        if not path.exists():
+            return UserHistory(post_last_visited={})
+        data = json.loads(path.read_text(encoding="utf-8"))
+        raw_post_last_visited = data.get("post_last_visited")
+        if not isinstance(raw_post_last_visited, dict):
+            return UserHistory(post_last_visited={})
+        parsed = {
+            str(post_id): str(visited_at)
+            for post_id, visited_at in raw_post_last_visited.items()
+            if isinstance(post_id, str) and isinstance(visited_at, str)
+        }
+        return UserHistory(post_last_visited=parsed)
+
+    def save_user_history(self, username: str, history: UserHistory) -> None:
+        path = self.user_history_path(username)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps(asdict(history), ensure_ascii=True, indent=2) + "\n",
+            encoding="utf-8",
+        )
+
+    def set_post_last_visited(self, username: str, post_id: int, visited_at: str) -> UserHistory:
+        history = self.load_user_history(username)
+        history.post_last_visited[str(post_id)] = visited_at
+        self.save_user_history(username, history)
+        return history
 
