@@ -58,9 +58,29 @@ BBS_TOKEN=your_token bbs auth me
 - `notifications`
 - `search`
 
+## 一级命令缩写速查
+
+说明：缩写通过“最短唯一前缀”自动解析，`--help` 默认只显示标准命令，不重复展示缩写别名。
+
+- `a` => `auth`
+- `u` => `users`
+- `b` => `boards`
+- `p` => `posts`
+- `r` => `replies`
+- `f` => `favorites`
+- `fb` => `favorite-boards`
+- `n` => `notifications`
+- `s` => `search`
+- `h` => `health`
+
 ## 常用示例
 
 ```bash
+bbs h check
+bbs a me
+bbs u list -p 1 -s 10
+bbs b list
+
 bbs users list -p 1 -s 10
 bbs users get
 bbs users get 1
@@ -90,6 +110,10 @@ bbs search -k "python"
 
 ## 短参数速查
 
+- `-B` => `--base-url`
+- `-T` => `--token`
+- `-C` => `--config-path`
+- `-W` => `--timeout`
 - `-u` => `--user-id`（可选；不传默认使用当前登录用户）
 - `-p` => `--page`
 - `-i` => `--post-id`
@@ -97,6 +121,9 @@ bbs search -k "python"
 - `-t` => `--title`
 - `-c` => `--content`
 - `-s` => `--size`
+- `-g` => `--tags`
+- `-k` => `--keyword`
+- `-S` => `--save`
 
 ## 大文本内容输入（post create）
 

@@ -18,6 +18,38 @@ DEFAULT_BASE_URL = "http://127.0.0.1:60080"
 SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
 
 
+class AliasedGroup(click.Group):
+    """Resolve top-level commands by unique prefix while keeping help clean."""
+
+    hidden_aliases = {"post": "posts"}
+
+    @staticmethod
+    def _command_keys(name: str) -> tuple[str, ...]:
+        parts = name.split("-")
+        compact = "".join(parts)
+        initials = "".join(part[:1] for part in parts if part)
+        return (name, compact, initials)
+
+    def get_command(self, ctx: click.Context, cmd_name: str) -> click.Command | None:
+        command = super().get_command(ctx, cmd_name)
+        if command is not None:
+            return command
+
+        alias_target = self.hidden_aliases.get(cmd_name)
+        if alias_target is not None:
+            return super().get_command(ctx, alias_target)
+
+        matches: list[str] = []
+        for name in self.list_commands(ctx):
+            if any(key.startswith(cmd_name) for key in self._command_keys(name)):
+                matches.append(name)
+        if len(matches) == 1:
+            return super().get_command(ctx, matches[0])
+        if len(matches) > 1:
+            ctx.fail(f"Too many matches: {', '.join(matches)}")
+        return None
+
+
 @dataclass
 class AppContext:
     client: ApiClient
@@ -282,16 +314,17 @@ def _auto_mark_board_new_post_notifications_read(app: AppContext, board_id: int)
     _safe_auto_mark_read(app, _predicate)
 
 
-@click.group()
-@click.option("--base-url", default=None, envvar="BBS_BASE_URL", help="API base URL.")
-@click.option("--token", default=None, envvar="BBS_TOKEN", help="Auth token.")
+@click.group(cls=AliasedGroup)
+@click.option("-B", "--base-url", default=None, envvar="BBS_BASE_URL", help="API base URL.")
+@click.option("-T", "--token", default=None, envvar="BBS_TOKEN", help="Auth token.")
 @click.option(
+    "-C",
     "--config-path",
     type=click.Path(path_type=Path, file_okay=True, dir_okay=True),
     default=None,
     help="Storage root path (or legacy config file path).",
 )
-@click.option("--timeout", default=20.0, type=float, show_default=True)
+@click.option("-W", "--timeout", default=20.0, type=float, show_default=True)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -379,7 +412,7 @@ def auth_register(
 @auth.command("login")
 @click.option("-u", "--username", required=True)
 @click.option("-p", "--password", required=True)
-@click.option("--save/--no-save", default=True, show_default=True)
+@click.option("-S", "--save/--no-save", default=True, show_default=True)
 @click.pass_obj
 def auth_login(app: AppContext, username: str, password: str, save: bool) -> None:
     try:
@@ -559,7 +592,7 @@ def posts_history(app: AppContext, post_id: int | None) -> None:
     default=None,
     help="Raw JSON body string, @file.json, or @- (stdin).",
 )
-@click.option("--tags", multiple=True, help="Repeatable option.")
+@click.option("-g", "--tags", multiple=True, help="Repeatable option.")
 @click.pass_obj
 def posts_create(
     app: AppContext,
@@ -598,7 +631,7 @@ def posts_create(
 @click.argument("post_id", type=int)
 @click.option("-t", "--title", default=None)
 @click.option("-c", "--content", default=None)
-@click.option("--tags", multiple=True, help="Repeatable option.")
+@click.option("-g", "--tags", multiple=True, help="Repeatable option.")
 @click.pass_obj
 def posts_update(
     app: AppContext,
@@ -791,18 +824,6 @@ def notifications_read_all(app: AppContext) -> None:
 @click.pass_obj
 def search(app: AppContext, keyword: str) -> None:
     _run_request(app, "GET", "/search", params={"keyword": keyword})
-
-
-@click.group("post")
-def post() -> None:
-    """Alias of posts APIs."""
-
-
-for _name in ("list", "get", "create", "update", "delete", "replies"):
-    post.add_command(posts.commands[_name], name=_name)
-
-
-cli.add_command(post)
 
 
 if __name__ == "__main__":
