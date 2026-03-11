@@ -103,7 +103,7 @@ bbs favorite-boards add -b 1
 bbs favorite-boards list
 bbs favorite-boards list -u 1
 
-bbs notifications list -p 1 -s 10
+bbs notifications list -p 1 -s 10  # 默认仅显示未读
 bbs notifications read-all
 bbs search -k "python"
 ```
@@ -178,7 +178,7 @@ JSON
 ## 通知自动已读规则
 
 - 对外只暴露：
-  - `notifications list`（返回分页结果并附带 `unread_count`，不会改已读状态）
+  - `notifications list`（默认仅显示未读，返回分页结果并附带 `unread_count`，不会改已读状态）
   - `notifications read-all`（手动全部已读）
 - 以下命令会自动触发“按类型精细已读”：
   - `posts get <post_id>`

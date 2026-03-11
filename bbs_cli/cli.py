@@ -809,6 +809,13 @@ def notifications_list(app: AppContext, page: int, size: int) -> None:
         )
         raise click.Abort() from exc
 
+    items = payload.get("items")
+    if isinstance(items, list):
+        payload["items"] = [
+            item
+            for item in items
+            if not (isinstance(item, dict) and item.get("is_read") is True)
+        ]
     payload["unread_count"] = unread_count
     _emit_json(payload)
 
