@@ -136,6 +136,152 @@ def _resolve_user_id(app: AppContext, user_id: int | None) -> int:
     return resolved
 
 
+def _contains_any(text: str, words: tuple[str, ...]) -> bool:
+    return any(word in text for word in words)
+
+
+def _notification_text(notification: dict[str, Any]) -> str:
+    return " ".join(
+        str(notification.get(key, "")).lower()
+        for key in ("event_type", "message", "post_title")
+    )
+
+
+def _is_new_board_notification(notification: dict[str, Any]) -> bool:
+    text = _notification_text(notification)
+    board_words = ("board", "版块", "板块")
+    create_words = ("new", "create", "created", "add", "新增", "创建")
+    post_words = ("post", "帖子")
+    return _contains_any(text, board_words) and _contains_any(text, create_words) and not _contains_any(
+        text, post_words
+    )
+
+
+def _is_post_activity_notification(notification: dict[str, Any]) -> bool:
+    text = _notification_text(notification)
+    activity_words = ("reply", "comment", "update", "edit", "回复", "评论", "修改", "更新")
+    return _contains_any(text, activity_words)
+
+
+def _is_board_new_post_notification(notification: dict[str, Any]) -> bool:
+    text = _notification_text(notification)
+    board_words = ("board", "版块", "板块", "关注板块", "关注的板块")
+    post_words = ("post", "帖子")
+    create_words = ("new", "create", "created", "新增", "发布", "新帖")
+    return _contains_any(text, board_words) and _contains_any(text, post_words) and _contains_any(
+        text, create_words
+    )
+
+
+def _list_notifications_page(app: AppContext, page: int, size: int) -> dict[str, Any]:
+    result = app.client.request(
+        "GET",
+        "/notifications",
+        params={"page": page, "size": size},
+    )
+    if not isinstance(result, dict):
+        raise ApiError(status_code=0, detail=result, message="Invalid notifications response")
+    return result
+
+
+def _list_all_notifications(app: AppContext, size: int = 100) -> list[dict[str, Any]]:
+    page = 1
+    total_pages = 1
+    collected: list[dict[str, Any]] = []
+    while page <= total_pages:
+        payload = _list_notifications_page(app, page=page, size=size)
+        items = payload.get("items")
+        if isinstance(items, list):
+            collected.extend(item for item in items if isinstance(item, dict))
+        tp = payload.get("total_pages")
+        if isinstance(tp, int) and tp > 0:
+            total_pages = tp
+        else:
+            break
+        page += 1
+    return collected
+
+
+def _get_unread_notification_count(app: AppContext) -> int:
+    payload = app.client.request("GET", "/notifications/unread-count")
+    if isinstance(payload, dict):
+        value = payload.get("unread_count")
+        if isinstance(value, int):
+            return value
+    return 0
+
+
+def _mark_notification_read(app: AppContext, notification_id: int) -> None:
+    app.client.request("PUT", f"/notifications/{notification_id}/read")
+
+
+def _safe_auto_mark_read(app: AppContext, predicate: Any) -> int:
+    if not app.client.token:
+        return 0
+    try:
+        notifications = _list_all_notifications(app)
+    except ApiError:
+        return 0
+
+    marked = 0
+    for notification in notifications:
+        if notification.get("is_read") is True:
+            continue
+        if not predicate(notification):
+            continue
+        notification_id = notification.get("id")
+        if not isinstance(notification_id, int):
+            continue
+        try:
+            _mark_notification_read(app, notification_id)
+            marked += 1
+        except ApiError:
+            continue
+    return marked
+
+
+def _auto_mark_post_notifications_read(app: AppContext, post_id: int) -> None:
+    def _predicate(notification: dict[str, Any]) -> bool:
+        noti_post_id = notification.get("post_id")
+        if not isinstance(noti_post_id, int) or noti_post_id != post_id:
+            return False
+        return _is_post_activity_notification(notification) or _is_board_new_post_notification(
+            notification
+        )
+
+    _safe_auto_mark_read(app, _predicate)
+
+
+def _auto_mark_new_board_notifications_read(app: AppContext) -> None:
+    _safe_auto_mark_read(app, _is_new_board_notification)
+
+
+def _auto_mark_board_new_post_notifications_read(app: AppContext, board_id: int) -> None:
+    post_board_cache: dict[int, int | None] = {}
+
+    def _post_board_id(post_id: int) -> int | None:
+        if post_id in post_board_cache:
+            return post_board_cache[post_id]
+        try:
+            payload = app.client.request("GET", f"/posts/{post_id}")
+        except ApiError:
+            post_board_cache[post_id] = None
+            return None
+        result = payload.get("board_id") if isinstance(payload, dict) else None
+        post_board_cache[post_id] = result if isinstance(result, int) else None
+        return post_board_cache[post_id]
+
+    def _predicate(notification: dict[str, Any]) -> bool:
+        if not _is_board_new_post_notification(notification):
+            return False
+        post_id = notification.get("post_id")
+        if not isinstance(post_id, int):
+            return False
+        return _post_board_id(post_id) == board_id
+
+    _safe_auto_mark_read(app, _predicate)
+
+
 @click.group()
 @click.option("--base-url", default=None, envvar="BBS_BASE_URL", help="API base URL.")
 @click.option("--token", default=None, envvar="BBS_TOKEN", help="Auth token.")
@@ -321,6 +467,7 @@ def boards() -> None:
 @click.pass_obj
 def boards_list(app: AppContext) -> None:
     _run_request(app, "GET", "/boards")
+    _auto_mark_new_board_notifications_read(app)
 
 
 @boards.command("get")
@@ -328,6 +475,7 @@ def boards_list(app: AppContext) -> None:
 @click.pass_obj
 def boards_get(app: AppContext, board_id: int) -> None:
     _run_request(app, "GET", f"/boards/{board_id}")
+    _auto_mark_board_new_post_notifications_read(app, board_id)
 
 
 @boards.command("create")
@@ -374,6 +522,7 @@ def posts_list(
 @click.pass_obj
 def posts_get(app: AppContext, post_id: int) -> None:
     _run_request(app, "GET", f"/posts/{post_id}")
+    _auto_mark_post_notifications_read(app, post_id)
     _record_post_visit(app, post_id)
 
 
@@ -493,6 +642,7 @@ def posts_replies_list(app: AppContext, post_id: int, page: int, size: int) -> N
         f"/posts/{post_id}/replies",
         params={"page": page, "size": size},
     )
+    _auto_mark_post_notifications_read(app, post_id)
     _record_post_visit(app, post_id)
 
 
@@ -600,6 +750,47 @@ def favorite_boards_list(app: AppContext, user_id: int | None, page: int, size: 
         "/favorite-boards",
         params={"user_id": resolved_user_id, "page": page, "size": size},
     )
+
+
+@cli.group()
+def notifications() -> None:
+    """Notifications APIs."""
+
+
+@notifications.command("list")
+@click.option("-p", "--page", default=1, show_default=True, type=int)
+@click.option("-s", "--size", default=10, show_default=True, type=int)
+@click.pass_obj
+def notifications_list(app: AppContext, page: int, size: int) -> None:
+    try:
+        payload = _list_notifications_page(app, page=page, size=size)
+        unread_count = _get_unread_notification_count(app)
+    except ApiError as exc:
+        _emit_json(
+            {
+                "ok": False,
+                "status_code": exc.status_code,
+                "error": exc.message,
+                "detail": exc.detail,
+            }
+        )
+        raise click.Abort() from exc
+
+    payload["unread_count"] = unread_count
+    _emit_json(payload)
+
+
+@notifications.command("read-all")
+@click.pass_obj
+def notifications_read_all(app: AppContext) -> None:
+    _run_request(app, "PUT", "/notifications/read-all")
+
+
+@cli.command("search")
+@click.option("-k", "--keyword", required=True)
+@click.pass_obj
+def search(app: AppContext, keyword: str) -> None:
+    _run_request(app, "GET", "/search", params={"keyword": keyword})
 
 
 @click.group("post")

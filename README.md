@@ -55,6 +55,8 @@ BBS_TOKEN=your_token bbs auth me
 - `replies`
 - `favorites`
 - `favorite-boards`
+- `notifications`
+- `search`
 
 ## 常用示例
 
@@ -80,6 +82,10 @@ bbs favorites list -u 1
 bbs favorite-boards add -b 1
 bbs favorite-boards list
 bbs favorite-boards list -u 1
+
+bbs notifications list -p 1 -s 10
+bbs notifications read-all
+bbs search -k "python"
 ```
 
 ## 短参数速查
@@ -141,3 +147,14 @@ JSON
 
 - JSON 默认使用 UTF-8 直接输出（中文不转义）。
 - 时间字段（如 `created_at`、`updated_at`）统一转换为上海时区（`Asia/Shanghai`），格式为 `YYYY-MM-DD HH:MM:SS`（精确到秒）。
+
+## 通知自动已读规则
+
+- 对外只暴露：
+  - `notifications list`（返回分页结果并附带 `unread_count`，不会改已读状态）
+  - `notifications read-all`（手动全部已读）
+- 以下命令会自动触发“按类型精细已读”：
+  - `posts get <post_id>`
+  - `posts replies list <post_id>`
+  - `boards list`
+  - `boards get <board_id>`
