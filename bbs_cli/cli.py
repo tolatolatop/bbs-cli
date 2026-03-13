@@ -793,8 +793,16 @@ def notifications() -> None:
 @notifications.command("list")
 @click.option("-p", "--page", default=1, show_default=True, type=int)
 @click.option("-s", "--size", default=10, show_default=True, type=int)
+@click.option(
+    "--include-read/--unread-only",
+    default=False,
+    show_default=True,
+    help="Include read notifications.",
+)
 @click.pass_obj
-def notifications_list(app: AppContext, page: int, size: int) -> None:
+def notifications_list(
+    app: AppContext, page: int, size: int, include_read: bool
+) -> None:
     try:
         payload = _list_notifications_page(app, page=page, size=size)
         unread_count = _get_unread_notification_count(app)
@@ -810,7 +818,7 @@ def notifications_list(app: AppContext, page: int, size: int) -> None:
         raise click.Abort() from exc
 
     items = payload.get("items")
-    if isinstance(items, list):
+    if isinstance(items, list) and not include_read:
         payload["items"] = [
             item
             for item in items

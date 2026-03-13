@@ -104,6 +104,7 @@ bbs favorite-boards list
 bbs favorite-boards list -u 1
 
 bbs notifications list -p 1 -s 10  # 默认仅显示未读
+bbs notifications list --include-read -p 1 -s 10  # 显示全部（含已读）
 bbs notifications read-all
 bbs search -k "python"
 ```

@@ -75,6 +75,48 @@ def test_notifications_list_hides_read_items_by_default(tmp_path: Path, monkeypa
     assert payload["unread_count"] == 2
 
 
+def test_notifications_list_include_read_shows_read_items(
+    tmp_path: Path, monkeypatch
+) -> None:
+    _write_user_context(tmp_path)
+
+    def fake_request(self, method, path, params=None, json_body=None):
+        if method == "GET" and path == "/notifications":
+            assert params == {"page": 1, "size": 10}
+            return {
+                "items": [
+                    {"id": 1, "is_read": False},
+                    {"id": 2, "is_read": True},
+                    {"id": 3, "is_read": False},
+                ],
+                "page": 1,
+                "size": 10,
+                "total_pages": 1,
+            }
+        if method == "GET" and path == "/notifications/unread-count":
+            return {"unread_count": 2}
+        raise AssertionError(f"Unexpected call: {method} {path}")
+
+    monkeypatch.setattr("bbs_cli.client.ApiClient.request", fake_request)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "--config-path",
+            str(tmp_path),
+            "notifications",
+            "list",
+            "--include-read",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert [item["id"] for item in payload["items"]] == [1, 2, 3]
+    assert payload["unread_count"] == 2
+
+
 def test_posts_get_auto_marks_matching_post_notifications(tmp_path: Path, monkeypatch) -> None:
     _write_user_context(tmp_path)
     read_ids: list[int] = []
